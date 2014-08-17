@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, render_template, url_for
 app = Flask(__name__)
 app.debug = True
 
@@ -21,25 +21,32 @@ def run_model(name):
 	percent = str(int(probability))+'%' 
 	return {'ethnicity': category, 'probability': percent};
 
-@app.route('/')
-def hello_world():
-	return 'Hello World!'
+@app.route('/ethnicity', methods=['GET', 'POST'])
+def ethnicity():
+	if request.method == 'GET':
+		return render_template('form.html')
+	else:
+		name=request.form['lastname']
+		res = ethnicity_search(name)
+		return render_template('result.html', ethnicity=res['ethnicity'], probability=res['probability'])
 
-@app.route('/ethnicity')
-def ethnicity_search():
+@app.route('/ethnicityapi')
+def ethnicityapi():
 	first_name = request.args.get('first_name')
 	last_name = request.args.get('last_name')
+	return json.dumps(ethnicity_search(last_name))
+
+def ethnicity_search(last_name):
 	result = db.session.query(Name).filter_by(lastname=last_name).all()
 	if len(result) != 0:
 		ethnicitage = {'hispanic':result[0].hispanic, 'asian':result[0].asian, 'white':result[0].white, 'african':result[0].african}
-		print ethnicitage
 		top = sorted(ethnicitage.iteritems(), key=operator.itemgetter(1))
 		top.reverse()
 		res = {'ethnicity': top[0][0], 'probability': str(int(top[0][1]))+'%'};
 	else:
 		res = run_model(last_name)
 	#check in names db and return the result, otherwise call other function
-	return json.dumps(res)
+	return res
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', port=5000)
